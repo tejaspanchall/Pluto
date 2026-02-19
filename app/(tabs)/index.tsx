@@ -17,48 +17,8 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-
-// solana rpc endpoint
-const RPC = "https://api.mainnet-beta.solana.com";
-
-const rpc = async (method: string, params: any[]) => {
-    const res = await fetch(RPC, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
-    });
-    const json = await res.json();
-    if (json.error) throw new Error(json.error.message);
-    return json.result;
-};
-
-const getBalance = async (addr: string) => {
-    const result = await rpc("getBalance", [addr]);
-    return result.value / 1_000_000_000;
-};
-
-const getTokens = async (addr: string) => {
-    const result = await rpc("getTokenAccountsByOwner", [
-        addr,
-        { programId: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" },
-        { encoding: "jsonParsed" },
-    ]);
-    return (result.value || [])
-        .map((a: any) => ({
-            mint: a.account.data.parsed.info.mint,
-            amount: a.account.data.parsed.info.tokenAmount.uiAmount,
-        }))
-        .filter((t: any) => t.amount > 0);
-};
-
-const getTxns = async (addr: string) => {
-    const sigs = await rpc("getSignaturesForAddress", [addr, { limit: 10 }]);
-    return sigs.map((s: any) => ({
-        sig: s.signature,
-        time: s.blockTime,
-        ok: !s.err,
-    }));
-};
+import { useWalletStore } from "../../src/stores/wallet-store";
+import { FavoriteButton } from "../../src/components/FavoriteButton";
 
 const short = (s: string, n = 4) => `${s.slice(0, n)}...${s.slice(-n)}`;
 
@@ -78,11 +38,62 @@ export default function WalletScreen() {
     const [tokens, setTokens] = useState<any[]>([]);
     const [txns, setTxns] = useState<any[]>([]);
 
+    // wallet store
+    const addToHistory = useWalletStore((s: any) => s.addToHistory);
+    const searchHistory = useWalletStore((s: any) => s.searchHistory);
+    const isDevnet = useWalletStore((s: any) => s.isDevnet);
+    const toggleNetwork = useWalletStore((s: any) => s.toggleNetwork);
+
+    // use correct rpc based on network
+    const RPC = isDevnet
+        ? "https://api.devnet.solana.com"
+        : "https://api.mainnet-beta.solana.com";
+
+    const rpc = async (method: string, params: any[]) => {
+        const res = await fetch(RPC, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
+        });
+        const json = await res.json();
+        if (json.error) throw new Error(json.error.message);
+        return json.result;
+    };
+
+    const getBalance = async (addr: string) => {
+        const result = await rpc("getBalance", [addr]);
+        return result.value / 1_000_000_000;
+    };
+
+    const getTokens = async (addr: string) => {
+        const result = await rpc("getTokenAccountsByOwner", [
+            addr,
+            { programId: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" },
+            { encoding: "jsonParsed" },
+        ]);
+        return (result.value || [])
+            .map((a: any) => ({
+                mint: a.account.data.parsed.info.mint,
+                amount: a.account.data.parsed.info.tokenAmount.uiAmount,
+            }))
+            .filter((t: any) => t.amount > 0);
+    };
+
+    const getTxns = async (addr: string) => {
+        const sigs = await rpc("getSignaturesForAddress", [addr, { limit: 10 }]);
+        return sigs.map((s: any) => ({
+            sig: s.signature,
+            time: s.blockTime,
+            ok: !s.err,
+        }));
+    };
+
     const search = async () => {
         const addr = address.trim();
         if (!addr) return Alert.alert("Enter a wallet address");
 
         setLoading(true);
+        addToHistory(addr);
         try {
             const [bal, tok, tx] = await Promise.all([
                 getBalance(addr),
@@ -98,8 +109,27 @@ export default function WalletScreen() {
         setLoading(false);
     };
 
-    const tryExample = () => {
-        setAddress("86xCnPeV69n6t3DnyGvkKobf9FdN2H9oiVDdaMpo2MMY");
+    const searchFromHistory = (addr: string) => {
+        setAddress(addr);
+        addToHistory(addr);
+        setLoading(true);
+        Promise.all([getBalance(addr), getTokens(addr), getTxns(addr)])
+            .then(([bal, tok, tx]) => {
+                setBalance(bal);
+                setTokens(tok);
+                setTxns(tx);
+            })
+            .catch((e: any) => {
+                Alert.alert("Error", e.message);
+            })
+            .finally(() => setLoading(false));
+    };
+
+    const clearResults = () => {
+        setAddress("");
+        setBalance(null);
+        setTokens([]);
+        setTxns([]);
     };
 
     return (
@@ -111,6 +141,10 @@ export default function WalletScreen() {
                         style={s.logo}
                         resizeMode="contain"
                     />
+                    <TouchableOpacity style={s.networkToggle} onPress={toggleNetwork}>
+                        <View style={[s.networkDot, isDevnet && s.networkDotDevnet]} />
+                        <Text style={s.networkText}>{isDevnet ? "Devnet" : "Mainnet"}</Text>
+                    </TouchableOpacity>
                 </View>
                 <Text style={s.subtitle}>Explore any Solana wallet</Text>
 
@@ -142,13 +176,35 @@ export default function WalletScreen() {
                         )}
                     </TouchableOpacity>
 
-                    <TouchableOpacity style={s.btnGhost} onPress={tryExample}>
-                        <Text style={s.btnGhostText}>Demo</Text>
+                    <TouchableOpacity style={s.btnGhost} onPress={clearResults}>
+                        <Text style={s.btnGhostText}>Clear</Text>
                     </TouchableOpacity>
                 </View>
 
+                {searchHistory.length > 0 && balance === null && (
+                    <View style={s.historySection}>
+                        <Text style={s.historyTitle}>Recent Searches</Text>
+                        {searchHistory.slice(0, 5).map((addr) => (
+                            <TouchableOpacity
+                                key={addr}
+                                style={s.historyItem}
+                                onPress={() => searchFromHistory(addr)}
+                            >
+                                <Ionicons name="time-outline" size={16} color="#6B7280" />
+                                <Text style={s.historyAddress} numberOfLines={1}>
+                                    {short(addr, 8)}
+                                </Text>
+                                <Ionicons name="chevron-forward" size={16} color="#6B7280" />
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+                )}
+
                 {balance !== null && (
                     <View style={s.card}>
+                        <View style={s.favoriteWrapper}>
+                            <FavoriteButton address={address.trim()} />
+                        </View>
                         <Text style={s.label}>SOL Balance</Text>
                         <View style={s.balanceRow}>
                             <Text style={s.balance}>{balance.toFixed(4)}</Text>
@@ -246,10 +302,63 @@ const s = StyleSheet.create({
         width: 140,
         height: 48,
     },
+    networkToggle: {
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: "#16161D",
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: "#2A2A35",
+        gap: 6,
+    },
+    networkDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: "#14F195",
+    },
+    networkDotDevnet: {
+        backgroundColor: "#F59E0B",
+    },
+    networkText: {
+        color: "#9CA3AF",
+        fontSize: 12,
+        fontWeight: "500",
+    },
     subtitle: {
         color: "#6B7280",
         fontSize: 15,
         marginBottom: 28,
+    },
+    historySection: {
+        marginTop: 24,
+    },
+    historyTitle: {
+        color: "#6B7280",
+        fontSize: 13,
+        textTransform: "uppercase",
+        letterSpacing: 1,
+        marginBottom: 12,
+    },
+    historyItem: {
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: "#16161D",
+        paddingVertical: 14,
+        paddingHorizontal: 16,
+        borderRadius: 12,
+        marginBottom: 8,
+        borderWidth: 1,
+        borderColor: "#2A2A35",
+        gap: 12,
+    },
+    historyAddress: {
+        flex: 1,
+        color: "#FFFFFF",
+        fontSize: 14,
+        fontFamily: "monospace",
     },
     inputContainer: {
         backgroundColor: "#16161D",
@@ -304,6 +413,12 @@ const s = StyleSheet.create({
         marginTop: 28,
         borderWidth: 1,
         borderColor: "#2A2A35",
+        position: "relative",
+    },
+    favoriteWrapper: {
+        position: "absolute",
+        top: 12,
+        right: 12,
     },
     label: {
         color: "#6B7280",
