@@ -1,6 +1,6 @@
 // app/(tabs)/index.tsx
 // wallet screen - home tab at "/" route
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
     View,
     Text,
@@ -13,12 +13,16 @@ import {
     Alert,
     Linking,
     Image,
+    KeyboardAvoidingView,
+    Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useWalletStore } from "../../src/stores/wallet-store";
 import { FavoriteButton } from "../../src/components/FavoriteButton";
+import { ConnectButton } from "../../src/components/ConnectButton";
+import { useWallet } from "../../src/hooks/useWallet";
 
 const short = (s: string, n = 4) => `${s.slice(0, n)}...${s.slice(-n)}`;
 
@@ -44,12 +48,14 @@ export default function WalletScreen() {
     const isDevnet = useWalletStore((s: any) => s.isDevnet);
     const toggleNetwork = useWalletStore((s: any) => s.toggleNetwork);
 
+    const wallet = useWallet();
+
     // use correct rpc based on network
     const RPC = isDevnet
         ? "https://api.devnet.solana.com"
         : "https://api.mainnet-beta.solana.com";
 
-    const rpc = async (method: string, params: any[]) => {
+    const rpc = async (method: string, params: unknown[]) => {
         const res = await fetch(RPC, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -103,8 +109,9 @@ export default function WalletScreen() {
             setBalance(bal);
             setTokens(tok);
             setTxns(tx);
-        } catch (e: any) {
-            Alert.alert("Error", e.message);
+        } catch (e: unknown) {
+            const message = e instanceof Error ? e.message : "Unknown error";
+            Alert.alert("Error", message);
         }
         setLoading(false);
     };
@@ -119,8 +126,9 @@ export default function WalletScreen() {
                 setTokens(tok);
                 setTxns(tx);
             })
-            .catch((e: any) => {
-                Alert.alert("Error", e.message);
+            .catch((e: unknown) => {
+                const message = e instanceof Error ? e.message : "Unknown error";
+                Alert.alert("Error", message);
             })
             .finally(() => setLoading(false));
     };
@@ -132,153 +140,180 @@ export default function WalletScreen() {
         setTxns([]);
     };
 
+    // fetch connected wallet data when wallet connects
+    const prevConnected = useRef(false);
+    useEffect(() => {
+        if (wallet.connected && wallet.publicKey && !prevConnected.current) {
+            const addr = wallet.publicKey.toBase58();
+            setAddress(addr);
+            searchFromHistory(addr);
+        }
+        prevConnected.current = wallet.connected;
+    }, [wallet.connected, wallet.publicKey]);
+
     return (
         <SafeAreaView style={s.safe} edges={["top"]}>
-            <ScrollView style={s.scroll}>
-                <View style={s.header}>
-                    <Image
-                        source={require("../../assets/inicon.png")}
-                        style={s.logo}
-                        resizeMode="contain"
-                    />
-                    <TouchableOpacity style={s.networkToggle} onPress={toggleNetwork}>
-                        <View style={[s.networkDot, isDevnet && s.networkDotDevnet]} />
-                        <Text style={s.networkText}>{isDevnet ? "Devnet" : "Mainnet"}</Text>
-                    </TouchableOpacity>
-                </View>
-                <Text style={s.subtitle}>Explore any Solana wallet</Text>
-
-                <View style={s.inputContainer}>
-                    <TextInput
-                        style={s.input}
-                        placeholder="Enter wallet address..."
-                        placeholderTextColor="#6B7280"
-                        value={address}
-                        onChangeText={setAddress}
-                        autoCapitalize="none"
-                        autoCorrect={false}
-                        contextMenuHidden={false}
-                        selectTextOnFocus={true}
-                        editable={true}
-                    />
-                </View>
-
-                <View style={s.btnRow}>
-                    <TouchableOpacity
-                        style={[s.btn, loading && s.btnDisabled]}
-                        onPress={search}
-                        disabled={loading}
-                    >
-                        {loading ? (
-                            <ActivityIndicator color="#000" />
-                        ) : (
-                            <Text style={s.btnText}>Search</Text>
-                        )}
-                    </TouchableOpacity>
-
-                    <TouchableOpacity style={s.btnGhost} onPress={clearResults}>
-                        <Text style={s.btnGhostText}>Clear</Text>
-                    </TouchableOpacity>
-                </View>
-
-                {searchHistory.length > 0 && balance === null && (
-                    <View style={s.historySection}>
-                        <Text style={s.historyTitle}>Recent Searches</Text>
-                        {searchHistory.slice(0, 5).map((addr) => (
-                            <TouchableOpacity
-                                key={addr}
-                                style={s.historyItem}
-                                onPress={() => searchFromHistory(addr)}
-                            >
-                                <Ionicons name="time-outline" size={16} color="#6B7280" />
-                                <Text style={s.historyAddress} numberOfLines={1}>
-                                    {short(addr, 8)}
-                                </Text>
-                                <Ionicons name="chevron-forward" size={16} color="#6B7280" />
+            <KeyboardAvoidingView
+                behavior={Platform.OS === "ios" ? "padding" : "height"}
+                style={{ flex: 1 }}
+            >
+                <ScrollView style={s.scroll}>
+                    <View style={s.header}>
+                        <View style={s.headerLeft}>
+                            <Image
+                                source={require("../../assets/inicon.png")}
+                                style={s.logo}
+                                resizeMode="contain"
+                            />
+                            <Text style={s.subtitle}>Explore any Solana wallet</Text>
+                        </View>
+                        <View style={s.headerRight}>
+                            <TouchableOpacity style={s.networkToggle} onPress={toggleNetwork}>
+                                <View style={[s.networkDot, isDevnet && s.networkDotDevnet]} />
+                                <Text style={s.networkText}>{isDevnet ? "Devnet" : "Mainnet"}</Text>
                             </TouchableOpacity>
-                        ))}
-                    </View>
-                )}
-
-                {balance !== null && (
-                    <View style={s.card}>
-                        <View style={s.favoriteWrapper}>
-                            <FavoriteButton address={address.trim()} />
+                            <ConnectButton
+                                connected={wallet.connected}
+                                connecting={wallet.connecting}
+                                publicKey={wallet.publicKey?.toBase58() ?? null}
+                                onConnect={wallet.connect}
+                                onDisconnect={wallet.disconnect}
+                            />
                         </View>
-                        <Text style={s.label}>SOL Balance</Text>
-                        <View style={s.balanceRow}>
-                            <Text style={s.balance}>{balance.toFixed(4)}</Text>
-                            <Text style={s.sol}>SOL</Text>
-                        </View>
-                        <Text style={s.addr}>{short(address.trim(), 6)}</Text>
                     </View>
-                )}
 
-                {tokens.length > 0 && (
-                    <>
-                        <Text style={s.section}>Tokens ({tokens.length})</Text>
-                        <FlatList
-                            data={tokens}
-                            keyExtractor={(t) => t.mint}
-                            scrollEnabled={false}
-                            renderItem={({ item }) => (
-                                <TouchableOpacity
-                                    style={s.row}
-                                    onPress={() =>
-                                        router.push(`/token/${item.mint}?amount=${item.amount}`)
-                                    }
-                                >
-                                    <Text style={s.mint}>{short(item.mint, 6)}</Text>
-                                    <View style={s.tokenRight}>
-                                        <Text style={s.amount}>{item.amount}</Text>
-                                        <Ionicons
-                                            name="chevron-forward"
-                                            size={16}
-                                            color="#6B7280"
-                                        />
-                                    </View>
-                                </TouchableOpacity>
-                            )}
+                    <View style={s.inputContainer}>
+                        <TextInput
+                            style={s.input}
+                            placeholder="Enter wallet address..."
+                            placeholderTextColor="#6B7280"
+                            value={address}
+                            onChangeText={setAddress}
+                            autoCapitalize="none"
+                            autoCorrect={false}
+                            contextMenuHidden={false}
+                            selectTextOnFocus={true}
+                            editable={true}
                         />
-                    </>
-                )}
+                    </View>
 
-                {txns.length > 0 && (
-                    <>
-                        <Text style={s.section}>Recent Transactions</Text>
-                        <FlatList
-                            data={txns}
-                            keyExtractor={(t) => t.sig}
-                            scrollEnabled={false}
-                            renderItem={({ item }) => (
+                    <View style={s.btnRow}>
+                        <TouchableOpacity
+                            style={[s.btn, loading && s.btnDisabled]}
+                            onPress={search}
+                            disabled={loading}
+                        >
+                            {loading ? (
+                                <ActivityIndicator color="#000" />
+                            ) : (
+                                <Text style={s.btnText}>Search</Text>
+                            )}
+                        </TouchableOpacity>
+
+                        <TouchableOpacity style={s.btnGhost} onPress={clearResults}>
+                            <Text style={s.btnGhostText}>Clear</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    {searchHistory.length > 0 && balance === null && (
+                        <View style={s.historySection}>
+                            <Text style={s.historyTitle}>Recent Searches</Text>
+                            {searchHistory.slice(0, 5).map((addr: string) => (
                                 <TouchableOpacity
-                                    style={s.row}
-                                    onPress={() =>
-                                        Linking.openURL(`https://solscan.io/tx/${item.sig}`)
-                                    }
+                                    key={addr}
+                                    style={s.historyItem}
+                                    onPress={() => searchFromHistory(addr)}
                                 >
-                                    <View>
-                                        <Text style={s.mint}>{short(item.sig, 8)}</Text>
-                                        <Text style={s.time}>
-                                            {item.time ? timeAgo(item.time) : "pending"}
-                                        </Text>
-                                    </View>
-                                    <Text
-                                        style={{
-                                            color: item.ok ? "#14F195" : "#EF4444",
-                                            fontSize: 18,
-                                        }}
-                                    >
-                                        {item.ok ? "+" : "-"}
+                                    <Ionicons name="time-outline" size={16} color="#6B7280" />
+                                    <Text style={s.historyAddress} numberOfLines={1}>
+                                        {short(addr, 8)}
                                     </Text>
+                                    <Ionicons name="chevron-forward" size={16} color="#6B7280" />
                                 </TouchableOpacity>
-                            )}
-                        />
-                    </>
-                )}
+                            ))}
+                        </View>
+                    )}
 
-                <View style={{ height: 100 }} />
-            </ScrollView>
+                    {balance !== null && (
+                        <View style={s.card}>
+                            <View style={s.favoriteWrapper}>
+                                <FavoriteButton address={address.trim()} />
+                            </View>
+                            <Text style={s.label}>SOL Balance</Text>
+                            <View style={s.balanceRow}>
+                                <Text style={s.balance}>{balance.toFixed(4)}</Text>
+                                <Text style={s.sol}>SOL</Text>
+                            </View>
+                            <Text style={s.addr}>{short(address.trim(), 6)}</Text>
+                        </View>
+                    )}
+
+                    {tokens.length > 0 && (
+                        <>
+                            <Text style={s.section}>Tokens ({tokens.length})</Text>
+                            <FlatList
+                                data={tokens}
+                                keyExtractor={(t) => t.mint}
+                                scrollEnabled={false}
+                                renderItem={({ item }) => (
+                                    <TouchableOpacity
+                                        style={s.row}
+                                        onPress={() =>
+                                            router.push(`/token/${item.mint}?amount=${item.amount}`)
+                                        }
+                                    >
+                                        <Text style={s.mint}>{short(item.mint, 6)}</Text>
+                                        <View style={s.tokenRight}>
+                                            <Text style={s.amount}>{item.amount}</Text>
+                                            <Ionicons
+                                                name="chevron-forward"
+                                                size={16}
+                                                color="#6B7280"
+                                            />
+                                        </View>
+                                    </TouchableOpacity>
+                                )}
+                            />
+                        </>
+                    )}
+
+                    {txns.length > 0 && (
+                        <>
+                            <Text style={s.section}>Recent Transactions</Text>
+                            <FlatList
+                                data={txns}
+                                keyExtractor={(t) => t.sig}
+                                scrollEnabled={false}
+                                renderItem={({ item }) => (
+                                    <TouchableOpacity
+                                        style={s.row}
+                                        onPress={() =>
+                                            Linking.openURL(`https://solscan.io/tx/${item.sig}`)
+                                        }
+                                    >
+                                        <View>
+                                            <Text style={s.mint}>{short(item.sig, 8)}</Text>
+                                            <Text style={s.time}>
+                                                {item.time ? timeAgo(item.time) : "pending"}
+                                            </Text>
+                                        </View>
+                                        <Text
+                                            style={{
+                                                color: item.ok ? "#14F195" : "#EF4444",
+                                                fontSize: 18,
+                                            }}
+                                        >
+                                            {item.ok ? "+" : "-"}
+                                        </Text>
+                                    </TouchableOpacity>
+                                )}
+                            />
+                        </>
+                    )}
+
+                    <View style={{ height: 100 }} />
+                </ScrollView>
+            </KeyboardAvoidingView>
         </SafeAreaView>
     );
 }
@@ -295,8 +330,17 @@ const s = StyleSheet.create({
     },
     header: {
         marginTop: 8,
-        marginBottom: 16,
+        marginBottom: 28,
+        flexDirection: "row",
+        justifyContent: "space-between",
         alignItems: "flex-start",
+    },
+    headerLeft: {
+        flex: 1,
+    },
+    headerRight: {
+        alignItems: "flex-end",
+        gap: 8,
     },
     logo: {
         width: 140,
@@ -330,7 +374,7 @@ const s = StyleSheet.create({
     subtitle: {
         color: "#6B7280",
         fontSize: 15,
-        marginBottom: 28,
+        marginTop: 4,
     },
     historySection: {
         marginTop: 24,

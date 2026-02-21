@@ -11,6 +11,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useWalletStore } from "../../src/stores/wallet-store";
+import { useWallet } from "../../src/hooks/useWallet";
+import { ConnectButton } from "../../src/components/ConnectButton";
 
 export default function SettingsScreen() {
     const router = useRouter();
@@ -20,11 +22,46 @@ export default function SettingsScreen() {
     const searchHistory = useWalletStore((s) => s.searchHistory);
     const clearHistory = useWalletStore((s) => s.clearHistory);
 
+    const { publicKey, connected, connecting, connect, disconnect } = useWallet();
+
     return (
         <SafeAreaView style={s.safe} edges={["top"]}>
             <ScrollView style={s.scroll}>
                 <Text style={s.title}>Settings</Text>
                 <Text style={s.subtitle}>Configure your wallet explorer</Text>
+
+                {/* wallet connection section */}
+                <Text style={s.sectionTitle}>Wallet</Text>
+                <View style={s.card}>
+                    <View style={s.row}>
+                        <View style={s.rowLeft}>
+                            <View style={s.iconBox}>
+                                <Ionicons
+                                    name="wallet"
+                                    size={20}
+                                    color="#14F195"
+                                />
+                            </View>
+                            <View>
+                                <Text style={s.label}>
+                                    {connected ? "Wallet Connected" : "Connect Wallet"}
+                                </Text>
+                                <Text style={s.sublabel}>
+                                    {connected
+                                        ? `${publicKey?.toBase58().slice(0, 8)}...${publicKey?.toBase58().slice(-8)}`
+                                        : "Link your Solana wallet"}
+                                </Text>
+                            </View>
+                        </View>
+                        <ConnectButton
+                            connected={connected}
+                            connecting={connecting}
+                            publicKey={publicKey?.toBase58() || null}
+                            onConnect={connect}
+                            onDisconnect={disconnect}
+                        />
+                    </View>
+                </View>
 
                 {/* network section */}
                 <Text style={s.sectionTitle}>Network</Text>
