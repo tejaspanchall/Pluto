@@ -1,5 +1,3 @@
-// app/watchlist.tsx
-// watchlist screen - shows saved wallet addresses with balances
 import { useState, useEffect, useCallback } from "react";
 import {
     StyleSheet,

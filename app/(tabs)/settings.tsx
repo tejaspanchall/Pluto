@@ -30,7 +30,6 @@ export default function SettingsScreen() {
                 <Text style={s.title}>Settings</Text>
                 <Text style={s.subtitle}>Configure your wallet explorer</Text>
 
-                {/* wallet connection section */}
                 <Text style={s.sectionTitle}>Wallet</Text>
                 <View style={s.card}>
                     <View style={s.row}>
@@ -63,7 +62,6 @@ export default function SettingsScreen() {
                     </View>
                 </View>
 
-                {/* network section */}
                 <Text style={s.sectionTitle}>Network</Text>
                 <View style={s.card}>
                     <View style={s.row}>
@@ -91,7 +89,6 @@ export default function SettingsScreen() {
                     </View>
                 </View>
 
-                {/* stats section */}
                 <Text style={s.sectionTitle}>Data</Text>
                 <View style={s.card}>
                     <TouchableOpacity style={s.row} onPress={() => router.push("/watchlist")}>
@@ -124,7 +121,6 @@ export default function SettingsScreen() {
                     </View>
                 </View>
 
-                {/* danger zone */}
                 <Text style={s.sectionTitle}>Danger Zone</Text>
                 <TouchableOpacity
                     style={s.dangerButton}

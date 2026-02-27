@@ -1,5 +1,3 @@
-// app/token/[mint].tsx
-// dynamic route for token details - uses DexScreener API
 import { useEffect, useState } from "react";
 import {
     View,
@@ -63,12 +61,11 @@ export default function TokenDetailScreen() {
         setError(null);
 
         try {
-            // dexscreener api - free, no auth required
             const url = `https://api.dexscreener.com/latest/dex/tokens/${mint}`;
             const res = await fetch(url);
 
             if (!res.ok) {
-                throw new Error(`Failed to fetch: ${res.status}`);
+                throw new Error(`Failed to fetch: ${res.status}`);  
             }
 
             const data: DexScreenerResponse = await res.json();
@@ -77,7 +74,6 @@ export default function TokenDetailScreen() {
                 throw new Error("Token not found on DexScreener");
             }
 
-            // get the pair with highest liquidity
             const bestPair = data.pairs.reduce((best, current) => {
                 const bestLiq = best.liquidity?.usd || 0;
                 const currentLiq = current.liquidity?.usd || 0;
@@ -174,7 +170,6 @@ export default function TokenDetailScreen() {
             </View>
 
             <ScrollView style={s.scroll}>
-                {/* Token Header */}
                 <View style={s.tokenHeader}>
                     {tokenData.info?.imageUrl ? (
                         <Image source={{ uri: tokenData.info.imageUrl }} style={s.tokenLogo} />
@@ -189,7 +184,6 @@ export default function TokenDetailScreen() {
                     <Text style={s.tokenSymbol}>{tokenData.baseToken.symbol}</Text>
                 </View>
 
-                {/* Price Card */}
                 <View style={s.card}>
                     <Text style={s.cardLabel}>Current Price</Text>
                     <View style={s.priceRow}>
@@ -207,7 +201,6 @@ export default function TokenDetailScreen() {
                     </View>
                 </View>
 
-                {/* Holdings Card */}
                 {amount && (
                     <View style={s.card}>
                         <Text style={s.cardLabel}>Your Holdings</Text>
@@ -220,7 +213,6 @@ export default function TokenDetailScreen() {
                     </View>
                 )}
 
-                {/* Market Data Card */}
                 <View style={s.card}>
                     <Text style={s.cardLabel}>Market Data</Text>
 
@@ -261,7 +253,6 @@ export default function TokenDetailScreen() {
                     )}
                 </View>
 
-                {/* Token Info Card */}
                 <View style={s.card}>
                     <Text style={s.cardLabel}>Token Info</Text>
 
@@ -281,7 +272,6 @@ export default function TokenDetailScreen() {
                     </View>
                 </View>
 
-                {/* Actions */}
                 <View style={s.actionsRow}>
                     <TouchableOpacity style={s.actionBtn} onPress={openDexScreener}>
                         <Ionicons name="stats-chart" size={18} color="#000" />

@@ -1,5 +1,3 @@
-// app/(tabs)/index.tsx
-// wallet screen - home tab at "/" route
 import { useState, useEffect, useRef } from "react";
 import {
     View,
@@ -42,7 +40,6 @@ export default function WalletScreen() {
     const [tokens, setTokens] = useState<any[]>([]);
     const [txns, setTxns] = useState<any[]>([]);
 
-    // wallet store
     const addToHistory = useWalletStore((s: any) => s.addToHistory);
     const searchHistory = useWalletStore((s: any) => s.searchHistory);
     const isDevnet = useWalletStore((s: any) => s.isDevnet);
@@ -50,7 +47,6 @@ export default function WalletScreen() {
 
     const wallet = useWallet();
 
-    // use correct rpc based on network
     const RPC = isDevnet
         ? "https://api.devnet.solana.com"
         : "https://api.mainnet-beta.solana.com";
@@ -140,7 +136,6 @@ export default function WalletScreen() {
         setTxns([]);
     };
 
-    // fetch connected wallet data when wallet connects
     const prevConnected = useRef(false);
     useEffect(() => {
         if (wallet.connected && wallet.publicKey && !prevConnected.current) {
@@ -245,6 +240,15 @@ export default function WalletScreen() {
                                 <Text style={s.sol}>SOL</Text>
                             </View>
                             <Text style={s.addr}>{short(address.trim(), 6)}</Text>
+                            {wallet.connected && (
+                                <TouchableOpacity
+                                    style={s.sendNav}
+                                    onPress={() => router.push("/send")}
+                                >
+                                    <Ionicons name="paper-plane" size={18} color="#0D0D12" />
+                                    <Text style={s.sendNavText}>Send SOL</Text>
+                                </TouchableOpacity>
+                            )}
                         </View>
                     )}
 
@@ -534,5 +538,21 @@ const s = StyleSheet.create({
         color: "#6B7280",
         fontSize: 12,
         marginTop: 4,
+    },
+    sendNav: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "#14F195",
+        paddingVertical: 12,
+        paddingHorizontal: 20,
+        borderRadius: 12,
+        marginTop: 20,
+        gap: 8,
+    },
+    sendNavText: {
+        color: "#0D0D12",
+        fontSize: 15,
+        fontWeight: "600",
     },
 });

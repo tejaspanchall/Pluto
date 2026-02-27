@@ -1,4 +1,3 @@
-// src/lib/storage.ts (AsyncStorage version)
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export const asyncStorageAdapter = {

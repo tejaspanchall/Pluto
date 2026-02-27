@@ -1,5 +1,3 @@
-// app/(tabs)/_layout.tsx
-// tab layout - defines bottom tab navigation
 import { Tabs } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 

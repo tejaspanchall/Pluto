@@ -1,5 +1,3 @@
-// app/(tabs)/swap.tsx
-// swap screen - at "/swap" route
 import { useState } from "react";
 import {
     View,
@@ -46,7 +44,6 @@ export default function SwapScreen() {
                     />
                 </View>
 
-                {/* From Token Card */}
                 <View style={[s.card, { marginBottom: 10 }]}>
                     <View style={s.cardHeader}>
                         <TouchableOpacity style={s.tokenSelector}>
@@ -71,14 +68,12 @@ export default function SwapScreen() {
                     </View>
                 </View>
 
-                {/* Swap Arrow */}
                 <View style={s.arrowContainer}>
                     <TouchableOpacity style={s.swapArrow} onPress={swapTokens}>
                         <Ionicons name="arrow-down" size={20} color="#FFF" />
                     </TouchableOpacity>
                 </View>
 
-                {/* To Token Card */}
                 <View style={s.card}>
                     <View style={s.cardHeader}>
                         <TouchableOpacity style={s.tokenSelector}>
@@ -103,7 +98,6 @@ export default function SwapScreen() {
                     </View>
                 </View>
 
-                {/* Swap Button */}
                 <TouchableOpacity style={s.swapBtn} onPress={handleSwap}>
                     <Text style={s.swapBtnText}>Swap</Text>
                 </TouchableOpacity>
